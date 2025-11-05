@@ -1,28 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:quizly/routes.dart';
-
-// Class helper untuk menerima argumen navigasi
-class ResultScreenArgs {
-  final String name;
-  final int score;
-  final int totalQuestions;
-
-  ResultScreenArgs({
-    required this.name,
-    required this.score,
-    required this.totalQuestions,
-  });
-}
+import 'package:provider/provider.dart';
+import 'package:quizly/providers/quiz_provider.dart';
+import 'package:quizly/screens/welcome_screen.dart';
+import 'package:quizly/widgets/custom_button.dart';
 
 class ResultScreen extends StatelessWidget {
+  static const routeName = '/result';
   const ResultScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Ekstrak argumen yang dikirim dari QuizScreen
-    final args = ModalRoute.of(context)!.settings.arguments as ResultScreenArgs;
-
-    double percentage = (args.score / args.totalQuestions) * 100;
+    // Menggunakan 'read' karena hanya menampilkan data sekali
+    final quizProvider = context.read<QuizProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -30,54 +19,52 @@ class ResultScreen extends StatelessWidget {
         automaticallyImplyLeading: false, // Sembunyikan tombol back
       ),
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+        // (Kriteria 6) Menggunakan ukuran dinamis
+        child: Container(
+          width: double.infinity,
+          margin: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(24.0),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+              ),
+            ],
+          ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Selamat, ${args.name}!',
-                style: Theme.of(context).textTheme.headlineSmall,
+                'Selamat, ${quizProvider.username}!',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
-              // Anda bisa menggunakan ScoreBadge di sini
               Text(
-                'Skor Anda:',
+                'Skor Akhir Anda:',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
+              const SizedBox(height: 10),
               Text(
-                '${args.score} / ${args.totalQuestions}',
-                style: Theme.of(context).textTheme.displaySmall,
-              ),
-              Text(
-                '${percentage.toStringAsFixed(1)}%',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: percentage > 60 ? Colors.green : Colors.red,
+                '${quizProvider.score} / ${quizProvider.totalQuestions}',
+                style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 30),
-              ElevatedButton(
+              // (Kriteria 3) Reusable widget
+              CustomButton(
+                text: 'Ulangi Kuis',
                 onPressed: () {
-                  // Ulangi kuis dengan nama yang sama
-                  Navigator.pushReplacementNamed(
-                    context,
-                    AppRoutes.quiz,
-                    arguments: args.name,
-                  );
+                  // Provider tidak di-reset di sini, tapi di WelcomeScreen
+                  Navigator.of(context).pushReplacementNamed(WelcomeScreen.routeName);
                 },
-                child: const Text('Ulangi Kuis'),
-              ),
-              OutlinedButton(
-                onPressed: () {
-                  // Kembali ke Beranda (clear stack navigasi)
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    AppRoutes.home,
-                        (route) => false, // Hapus semua rute sebelumnya
-                  );
-                },
-                child: const Text('Kembali ke Beranda'),
               ),
             ],
           ),

@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:quizly/data/questions.dart';
-import 'package:quizly/models/quiz_model.dart';
-import 'package:quizly/routes.dart';
-import 'package:quizly/screens/result_screen.dart'; // Import ResultScreenArgs
-
-// Widget dan file lain yang diperlukan (dibuat sebagai placeholder)
-import 'package:quizly/widgets/question_card.dart';
-import 'package:quizly/widgets/option_tile.dart';
+import 'package:provider/provider.dart';
+import 'package:quizly/providers/quiz_provider.dart';
+import 'package:quizly/widgets/answer_option.dart';
+import 'package:quizly/widgets/custom_button.dart';
 
 class QuizScreen extends StatefulWidget {
+  static const routeName = '/quiz';
   const QuizScreen({super.key});
 
   @override
@@ -16,95 +13,85 @@ class QuizScreen extends StatefulWidget {
 }
 
 class _QuizScreenState extends State<QuizScreen> {
-  late String userName;
-  int _currentQuestionIndex = 0;
-  int? _selectedOptionIndex; // Indeks jawaban yang dipilih user
-  final Map<int, int> _userAnswers = {}; // <indexSoal, indexJawabanUser>
+  // State lokal untuk UI (jawaban yang dipilih saat ini)
+  String? _selectedOption;
 
-  // Ambil nama dari argumen navigasi
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    userName = ModalRoute.of(context)!.settings.arguments as String;
-  }
-
-  void _selectOption(int index) {
+  void _onOptionSelected(String option) {
     setState(() {
-      _selectedOptionIndex = index;
+      _selectedOption = option;
     });
+    // Langsung simpan ke provider
+    Provider.of<QuizProvider>(context, listen: false).selectAnswer(option);
   }
 
-  void _nextQuestion() {
-    // Simpan jawaban user
-    if (_selectedOptionIndex != null) {
-      _userAnswers[_currentQuestionIndex] = _selectedOptionIndex!;
-    }
-
-    // Pindah ke pertanyaan berikutnya
-    if (_currentQuestionIndex < dummyQuestions.length - 1) {
-      setState(() {
-        _currentQuestionIndex++;
-        _selectedOptionIndex = null; // Reset pilihan
-      });
-    } else {
-      // Kuis selesai, hitung skor dan navigasi ke hasil
-      _submitQuiz();
-    }
-  }
-
-  void _submitQuiz() {
-    int score = 0;
-    _userAnswers.forEach((questionIndex, answerIndex) {
-      if (dummyQuestions[questionIndex].correctAnswerIndex == answerIndex) {
-        score++;
-      }
+  void _submit() {
+    // Navigasi ke pertanyaan berikutnya
+    Provider.of<QuizProvider>(context, listen: false).nextQuestion(context);
+    // Reset pilihan lokal untuk pertanyaan baru
+    setState(() {
+      _selectedOption = null;
     });
-
-    // Navigasi ke Halaman Hasil dan kirim data
-    Navigator.pushReplacementNamed(
-      context,
-      AppRoutes.result,
-      arguments: ResultScreenArgs(
-        name: userName,
-        score: score,
-        totalQuestions: dummyQuestions.length,
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    Question currentQuestion = dummyQuestions[_currentQuestionIndex];
-    bool isLastQuestion = _currentQuestionIndex == dummyQuestions.length - 1;
+    // (Kriteria 7) Menggunakan 'watch' agar UI update saat state berubah
+    final quizProvider = context.watch<QuizProvider>();
+    final question = quizProvider.currentQuestion;
+
+    // (Kriteria 7) Mengambil state jawaban dari provider saat build
+    // Ini memastikan jawaban tetap ada saat rotasi layar
+    _selectedOption = quizProvider.currentAnswer;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Soal ${_currentQuestionIndex + 1} / ${dummyQuestions.length}'),
+        title: Text('Quizly - Pertanyaan ${quizProvider.currentQuestionIndex + 1}/${quizProvider.totalQuestions}'),
+        centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. Kartu Pertanyaan (Widget Kustom)
-            QuestionCard(questionText: currentQuestion.text),
-            const SizedBox(height: 20),
+            // Box Pertanyaan
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Text(
+                question.text,
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 30),
 
-            // 2. Daftar Pilihan (Widget Kustom)
-            ...List.generate(currentQuestion.options.length, (index) {
-              return OptionTile(
-                optionText: currentQuestion.options[index],
-                isSelected: _selectedOptionIndex == index,
-                onTap: () => _selectOption(index),
+            // Pilihan Jawaban (Kriteria 3)
+            ...question.options.map((option) {
+              return AnswerOption(
+                text: option,
+                isSelected: _selectedOption == option,
+                onTap: () => _onOptionSelected(option),
               );
-            }),
+            }).toList(),
 
-            const Spacer(), // Dorong tombol ke bawah
+            const SizedBox(height: 30),
 
-            // 3. Tombol Next / Submit
-            ElevatedButton(
-              onPressed: _selectedOptionIndex != null ? _nextQuestion : null,
-              child: Text(isLastQuestion ? 'Submit' : 'Next'),
+            // Tombol Next (Kriteria 3)
+            CustomButton(
+              text: quizProvider.currentQuestionIndex == quizProvider.totalQuestions - 1
+                  ? 'Lihat Skor'
+                  : 'Selanjutnya',
+              onPressed: _selectedOption == null ? null : _submit, // Nonaktif jika belum pilih
             ),
           ],
         ),
